@@ -23,5 +23,19 @@ build/
 .vscode/
 .idea/
 
+# genome data files (large binaries, not for version control)
+*.fna
+*.fna.gz
+*.fasta
+*.fa
+*.gff
+*.gff.gz
+*.gff3
+*.bam
+*.bai
+*.vcf
+*.vcf.gz
+*.tbi
+
 # os
 .DS_Store

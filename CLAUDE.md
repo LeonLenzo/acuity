@@ -83,6 +83,27 @@ First-party plugins (built alongside core, set the pattern):
 3. **Celery** decouples long-running HPC jobs from the HTTP request cycle.
 4. **Custom renderer** over JBrowse — full UX control, no biomedical-scale complexity baggage. Reuse existing JS parsers for binary formats only.
 
+## Reference Genome (Test Data)
+
+**Organism:** *Parastagonospora nodorum* SN15 (wheat pathogen, fungus)
+**Accession:** GCA_016801405.1 (ASM1680140v1)
+**Assembly:** 23 chromosomes (CP069023.1–CP069045.1), ~40 Mb total
+**Annotation stats:** 17,567 genes · 17,764 mRNAs · 41,527 exons · avg 2.4 exons/mRNA
+**Repeat content:** 5,030 tandem repeats · 1,437 mobile elements · 355 dispersed repeats
+**Other features:** 74 tRNAs · 45 rRNAs · 13 pseudogenes
+
+**GFF3 feature hierarchy:** `gene → mRNA → exon + CDS`
+- Gene models are multi-exonic; introns are implicit gaps between exon records
+- Locus tag pattern: `JI435_######`
+- Confidence sets: A (high) and B (lower) — `confidence_set` attribute
+- Product field is commonly `hypothetical protein`; functional annotations are in `Note`
+
+**Implications for the renderer:**
+- Gene track must show exon blocks + thin intron backbone, not just a filled rectangle
+- Repeat features must go on a separate track (tandem_repeat, mobile_genetic_element, etc.)
+- tRNA/rRNA need a separate track or distinct colour
+- CDS children define the coding exons; exon children define the transcript extent
+
 ## Project Status
 
 Early architecture / side project. No timeline pressure. Building iteratively.

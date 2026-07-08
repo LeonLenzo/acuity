@@ -12,8 +12,13 @@ const ARROW_W = 10
 const GENE_Y_OFFSET = GENE_TRACK_H / 2   // single centre lane
 
 // ─── Colours ─────────────────────────────────────────────────────────────────
-const GENE_COLOR = '#5b8dd9'
-const GENE_HOVER = '#3a6db5'
+const GENE_COLOR   = '#5b8dd9'
+const GENE_HOVER   = '#3a6db5'
+const REPEAT_COLOR = '#94a3b8'
+const TRNA_COLOR   = '#10b981'
+
+// px width at which we switch from simple block → exon/intron model
+const EXON_DETAIL_THRESHOLD = 12
 
 // ─── Coordinate helpers ───────────────────────────────────────────────────────
 function toX(pos: number, viewStart: number, viewEnd: number, W: number): number {
@@ -124,6 +129,32 @@ function drawRuler(
 }
 
 // ─── Gene track ───────────────────────────────────────────────────────────────
+function drawArrowBlock(
+  ctx: CanvasRenderingContext2D,
+  x1: number, x2: number, cy: number, h: number, strand: '+' | '-',
+) {
+  const gw = x2 - x1
+  if (gw < 0.5) return
+  if (gw < 4) { ctx.fillRect(x1, cy - h / 2, Math.max(1, gw), h); return }
+  const aw = Math.min(ARROW_W, gw * 0.4)
+  ctx.beginPath()
+  if (strand === '+') {
+    ctx.moveTo(x1, cy - h / 2)
+    ctx.lineTo(x2 - aw, cy - h / 2)
+    ctx.lineTo(x2, cy)
+    ctx.lineTo(x2 - aw, cy + h / 2)
+    ctx.lineTo(x1, cy + h / 2)
+  } else {
+    ctx.moveTo(x1 + aw, cy - h / 2)
+    ctx.lineTo(x2, cy - h / 2)
+    ctx.lineTo(x2, cy + h / 2)
+    ctx.lineTo(x1 + aw, cy + h / 2)
+    ctx.lineTo(x1, cy)
+  }
+  ctx.closePath()
+  ctx.fill()
+}
+
 function drawGeneTrack(
   ctx: CanvasRenderingContext2D,
   W: number,
@@ -150,32 +181,42 @@ function drawGeneTrack(
     if (gw < 0.5) continue
 
     const isHovered = f.id === hoveredId
-    ctx.fillStyle = isHovered ? GENE_HOVER : GENE_COLOR
+    const baseColor = f.type === 'repeat' ? REPEAT_COLOR
+      : f.type === 'trna' || f.type === 'rrna' ? TRNA_COLOR
+      : GENE_COLOR
+    const hoverColor = f.type === 'gene' ? GENE_HOVER : baseColor
+    ctx.fillStyle = isHovered ? hoverColor : baseColor
 
-    if (gw < 4) {
-      ctx.fillRect(x1, cy - GENE_H / 2, Math.max(1, gw), GENE_H)
+    const hasExonDetail = f.exons.length > 0 && gw >= EXON_DETAIL_THRESHOLD
+
+    if (!hasExonDetail) {
+      // Simple block / arrow
+      const h = f.type === 'repeat' ? GENE_H * 0.5 : GENE_H
+      drawArrowBlock(ctx, x1, x2, cy, h, f.strand)
     } else {
-      const aw = Math.min(ARROW_W, gw * 0.35)
-      ctx.beginPath()
-      if (f.strand === '+') {
-        ctx.moveTo(x1, cy - GENE_H / 2)
-        ctx.lineTo(x2 - aw, cy - GENE_H / 2)
-        ctx.lineTo(x2, cy)
-        ctx.lineTo(x2 - aw, cy + GENE_H / 2)
-        ctx.lineTo(x1, cy + GENE_H / 2)
-      } else {
-        ctx.moveTo(x1 + aw, cy - GENE_H / 2)
-        ctx.lineTo(x2, cy - GENE_H / 2)
-        ctx.lineTo(x2, cy + GENE_H / 2)
-        ctx.lineTo(x1 + aw, cy + GENE_H / 2)
-        ctx.lineTo(x1, cy)
+      // Exon/intron model: backbone line + exon blocks
+      // Backbone (thin line spanning the whole gene locus)
+      ctx.fillRect(x1, cy - 1, gw, 2)
+
+      // Sort exons; 3'-most exon gets the arrow
+      const sorted = [...f.exons].sort((a, b) => a.start - b.start)
+      const lastExon = f.strand === '+' ? sorted[sorted.length - 1] : sorted[0]
+
+      for (const exon of sorted) {
+        if (exon.end < viewStart || exon.start > viewEnd) continue
+        const ex1 = Math.max(0, toX(exon.start, viewStart, viewEnd, W))
+        const ex2 = Math.min(W, toX(exon.end, viewStart, viewEnd, W))
+        const isLast = exon === lastExon
+        if (isLast) {
+          drawArrowBlock(ctx, ex1, ex2, cy, GENE_H, f.strand)
+        } else {
+          ctx.fillRect(ex1, cy - GENE_H / 2, Math.max(1, ex2 - ex1), GENE_H)
+        }
       }
-      ctx.closePath()
-      ctx.fill()
     }
 
     // Label — only when wide enough and zoomed in enough
-    if (gw > 50 && viewRange < 500_000) {
+    if (gw > 50 && viewRange < 300_000 && f.type === 'gene') {
       ctx.save()
       ctx.fillStyle = '#ffffff'
       ctx.font = '9px monospace'

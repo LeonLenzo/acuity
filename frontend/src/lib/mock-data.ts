@@ -1,6 +1,34 @@
-import type { Feature } from './genome-types'
+import type { Feature, Exon } from './genome-types'
 
 const featureCache = new Map<string, Feature[]>()
+
+// Generates realistic multi-exon fungal gene models (based on P. nodorum SN15 stats:
+// avg 2.4 exons/mRNA, small introns 50-200bp, exon sizes 100-800bp)
+function mockExons(start: number, end: number, exonCount: number, seed: number): Exon[] {
+  if (exonCount <= 1) return [{ start, end }]
+  const geneLen = end - start
+  const avgIntron = 100
+  const totalIntron = avgIntron * (exonCount - 1)
+  const totalExon = geneLen - totalIntron
+  if (totalExon <= 0) return [{ start, end }]
+
+  const exons: Exon[] = []
+  let pos = start
+  for (let i = 0; i < exonCount; i++) {
+    const remaining = exonCount - i
+    const exonLen = i === exonCount - 1
+      ? end - pos
+      : Math.max(60, Math.floor(totalExon / exonCount + ((seed * (i + 7)) % 200) - 100))
+    const exonEnd = Math.min(pos + exonLen, end - (remaining - 1) * 60)
+    exons.push({ start: pos, end: exonEnd })
+    if (i < exonCount - 1) {
+      const intronLen = 60 + ((seed * (i + 3)) % 140)
+      pos = exonEnd + intronLen
+      if (pos >= end) break
+    }
+  }
+  return exons
+}
 
 export function getMockFeatures(contigId: string, contigLength: number, geneCount: number): Feature[] {
   if (featureCache.has(contigId)) return featureCache.get(contigId)!
@@ -9,19 +37,24 @@ export function getMockFeatures(contigId: string, contigLength: number, geneCoun
   const step = Math.floor(contigLength / geneCount)
 
   for (let i = 0; i < geneCount; i++) {
-    const jitter = (i * 7919 + 3) % Math.max(1, Math.floor(step * 0.3))
+    const seed = i * 7919 + 3
+    const jitter = seed % Math.max(1, Math.floor(step * 0.3))
     const start = i * step + jitter + 50
     const geneLen = Math.floor(step * 0.35 + (i * 3571) % Math.max(1, Math.floor(step * 0.3)))
     const end = Math.min(start + geneLen, contigLength)
-    if (end <= start) continue
+    if (end <= start + 100) continue
     const strand: '+' | '-' = (i * 1723) % 3 === 0 ? '-' : '+'
+    const exonCount = 1 + (seed % 4)  // 1-4 exons, avg ~2.4
 
     features.push({
       id: `${contigId}-g${i}`,
-      name: `PST_${String(i + 1).padStart(5, '0')}`,
+      name: `JI435_${String(i + 1).padStart(6, '0')}`,
       start,
       end,
       strand,
+      type: 'gene',
+      exons: mockExons(start, end, exonCount, seed),
+      product: i % 8 === 0 ? 'effector protein' : 'hypothetical protein',
     })
   }
 

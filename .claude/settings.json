@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx shadcn@latest init --defaults)",
+      "Bash(npm install *)",
+      "Bash(npm --prefix /home/leonl/applications/work/genes/frontend install zustand @tanstack/react-query)",
+      "Bash(npm run *)",
+      "Read(//tmp/**)",
+      "Bash(kill %1)",
+      "Bash(npm --prefix /home/leonl/applications/work/genes/frontend run dev &>/tmp/next-dev.log & sleep 10 && cat /tmp/next-dev.log; kill %1 2>/dev/null)",
+      "Bash(rm -rf /home/leonl/applications/work/genes/frontend/.git)",
+      "Bash(git -C /home/leonl/applications/work/genes init)",
+      "Bash(git -C /home/leonl/applications/work/genes branch -m main)",
+      "Bash(supabase --version)",
+      "Bash(docker info *)",
+      "Bash(npx supabase *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(gh repo *)",
+      "Bash(npx shadcn@latest add sidebar resizable --silent)",
+      "Bash(npx shadcn@latest add collapsible --silent)",
+      "Bash(npx shadcn@latest add collapsible)",
+      "Bash(npm --prefix /home/leonl/applications/work/genes/frontend run build)",
+      "Bash(npm --prefix /home/leonl/applications/work/genes/frontend run dev)",
+      "Bash(git -C /home/leonl/applications/work/genes add frontend/)",
+      "Bash(git -C /home/leonl/applications/work/genes commit -m ' *)",
+      "Bash(git -C /home/leonl/applications/work/genes push)",
+      "Bash(zcat /home/leonl/applications/work/genes/GCA_016801405.1_ASM1680140v1_genomic.gff.gz)",
+      "Bash(zcat /home/leonl/applications/work/genes/GCA_016801405.1_ASM1680140v1_genomic.fna.gz)",
+      "Bash(awk -F'\\\\t' '{print $3}')"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}
