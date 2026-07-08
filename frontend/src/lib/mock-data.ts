@@ -1,3 +1,34 @@
+import type { Feature } from './genome-types'
+
+const featureCache = new Map<string, Feature[]>()
+
+export function getMockFeatures(contigId: string, contigLength: number, geneCount: number): Feature[] {
+  if (featureCache.has(contigId)) return featureCache.get(contigId)!
+
+  const features: Feature[] = []
+  const step = Math.floor(contigLength / geneCount)
+
+  for (let i = 0; i < geneCount; i++) {
+    const jitter = (i * 7919 + 3) % Math.max(1, Math.floor(step * 0.3))
+    const start = i * step + jitter + 50
+    const geneLen = Math.floor(step * 0.35 + (i * 3571) % Math.max(1, Math.floor(step * 0.3)))
+    const end = Math.min(start + geneLen, contigLength)
+    if (end <= start) continue
+    const strand: '+' | '-' = (i * 1723) % 3 === 0 ? '-' : '+'
+
+    features.push({
+      id: `${contigId}-g${i}`,
+      name: `PST_${String(i + 1).padStart(5, '0')}`,
+      start,
+      end,
+      strand,
+    })
+  }
+
+  featureCache.set(contigId, features)
+  return features
+}
+
 export const mockOrganisms = [
   {
     id: 'org-1',
