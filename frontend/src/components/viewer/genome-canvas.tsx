@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useCallback, useState } from 'react'
 import type { Feature } from '@/lib/genome-types'
-import { renderFrame, hitTestFeature, hitTestMinimap } from '@/lib/renderer'
+import { renderFrame, hitTestFeature, minimapPxToPos, isInsideMinimapViewport } from '@/lib/renderer'
 
 interface Props {
   contigLength: number
@@ -16,7 +16,10 @@ export function GenomeCanvas({ contigLength, features, onHoverFeature, onClickFe
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const viewRef = useRef({ start: 0, end: contigLength })
   const [, forceRender] = useState(0)
-  const dragRef = useRef<{ clientX: number; start: number; end: number } | null>(null)
+  type DragState =
+    | { mode: 'canvas'; clientX: number; start: number; end: number }
+    | { mode: 'minimap'; offsetBp: number }  // offsetBp = cursor genomic pos - viewStart
+  const dragRef = useRef<DragState | null>(null)
   const hoveredIdRef = useRef<string | null>(null)
 
   const getView = () => viewRef.current
@@ -90,30 +93,53 @@ export function GenomeCanvas({ contigLength, features, onHoverFeature, onClickFe
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const { x, y } = clientXY(e)
     const W = e.currentTarget.clientWidth
-    const miniPos = hitTestMinimap(x, y, W, contigLength)
+    const miniPos = minimapPxToPos(x, y, W, contigLength)
+
     if (miniPos !== null) {
       const { start, end } = getView()
-      const half = (end - start) / 2
-      const newStart = Math.max(0, miniPos - half)
-      const newEnd = Math.min(contigLength, miniPos + half)
-      setView(Math.round(newStart), Math.round(newEnd))
+      if (isInsideMinimapViewport(x, y, W, start, end, contigLength)) {
+        // Drag the viewport indicator
+        dragRef.current = { mode: 'minimap', offsetBp: miniPos - start }
+      } else {
+        // Jump-click: centre the view on this position
+        const half = (end - start) / 2
+        const newStart = Math.max(0, miniPos - half)
+        const newEnd = Math.min(contigLength, miniPos + half)
+        setView(Math.round(newStart), Math.round(newEnd))
+      }
       return
     }
+
     const { start, end } = getView()
-    dragRef.current = { clientX: e.clientX, start, end }
+    dragRef.current = { mode: 'canvas', clientX: e.clientX, start, end }
   }, [contigLength])
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const W = e.currentTarget.clientWidth
     const { x, y } = clientXY(e)
+    const drag = dragRef.current
 
-    if (dragRef.current) {
-      const dx = e.clientX - dragRef.current.clientX
-      const range = dragRef.current.end - dragRef.current.start
+    if (drag?.mode === 'minimap') {
+      const miniPos = minimapPxToPos(x, y, W, contigLength)
+      if (miniPos !== null) {
+        const { start, end } = getView()
+        const range = end - start
+        let newStart = Math.round(miniPos - drag.offsetBp)
+        let newEnd = newStart + range
+        if (newStart < 0) { newStart = 0; newEnd = range }
+        if (newEnd > contigLength) { newEnd = contigLength; newStart = contigLength - range }
+        setView(newStart, newEnd)
+      }
+      return
+    }
+
+    if (drag?.mode === 'canvas') {
+      const dx = e.clientX - drag.clientX
+      const range = drag.end - drag.start
       const bpPerPx = range / W
       const shift = -dx * bpPerPx
-      let newStart = Math.round(dragRef.current.start + shift)
-      let newEnd = Math.round(dragRef.current.end + shift)
+      let newStart = Math.round(drag.start + shift)
+      let newEnd = Math.round(drag.end + shift)
       if (newStart < 0) { newStart = 0; newEnd = range }
       if (newEnd > contigLength) { newEnd = contigLength; newStart = contigLength - range }
       setView(newStart, newEnd)

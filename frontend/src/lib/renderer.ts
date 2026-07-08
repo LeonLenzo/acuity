@@ -3,20 +3,17 @@ import type { Feature } from './genome-types'
 // ─── Layout constants (px) ───────────────────────────────────────────────────
 export const MINIMAP_H = 32
 export const RULER_H = 28
-export const GENE_TRACK_H = 80
+export const GENE_TRACK_H = 48
 export const HEADER_H = MINIMAP_H + RULER_H      // top of gene track
 export const TOTAL_FIXED_H = HEADER_H + GENE_TRACK_H
 
 const GENE_H = 14
 const ARROW_W = 10
-const FWD_Y_OFFSET = 20   // center of + lane within gene track
-const REV_Y_OFFSET = 58   // center of − lane within gene track
+const GENE_Y_OFFSET = GENE_TRACK_H / 2   // single centre lane
 
 // ─── Colours ─────────────────────────────────────────────────────────────────
-const FWD_COLOR = '#5b8dd9'
-const REV_COLOR = '#e07b54'
-const FWD_HOVER = '#3a6db5'
-const REV_HOVER = '#c4623f'
+const GENE_COLOR = '#5b8dd9'
+const GENE_HOVER = '#3a6db5'
 
 // ─── Coordinate helpers ───────────────────────────────────────────────────────
 function toX(pos: number, viewStart: number, viewEnd: number, W: number): number {
@@ -137,29 +134,10 @@ function drawGeneTrack(
   hoveredId: string | null,
 ) {
   const trackY = HEADER_H
+  const cy = trackY + GENE_Y_OFFSET
 
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, trackY, W, H - trackY)
-
-  const fwdY = trackY + FWD_Y_OFFSET
-  const revY = trackY + REV_Y_OFFSET
-
-  // Mid divider
-  const midY = trackY + GENE_TRACK_H / 2
-  ctx.strokeStyle = '#f1f5f9'
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  ctx.moveTo(0, midY)
-  ctx.lineTo(W, midY)
-  ctx.stroke()
-
-  // Strand labels
-  ctx.font = '9px system-ui,sans-serif'
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'middle'
-  ctx.fillStyle = '#94a3b8'
-  ctx.fillText('+', 4, fwdY)
-  ctx.fillText('−', 4, revY)
 
   const viewRange = viewEnd - viewStart
 
@@ -172,18 +150,14 @@ function drawGeneTrack(
     if (gw < 0.5) continue
 
     const isHovered = f.id === hoveredId
-    const isFwd = f.strand === '+'
-    const cy = isFwd ? fwdY : revY
-    ctx.fillStyle = isHovered
-      ? (isFwd ? FWD_HOVER : REV_HOVER)
-      : (isFwd ? FWD_COLOR : REV_COLOR)
+    ctx.fillStyle = isHovered ? GENE_HOVER : GENE_COLOR
 
     if (gw < 4) {
       ctx.fillRect(x1, cy - GENE_H / 2, Math.max(1, gw), GENE_H)
     } else {
       const aw = Math.min(ARROW_W, gw * 0.35)
       ctx.beginPath()
-      if (isFwd) {
+      if (f.strand === '+') {
         ctx.moveTo(x1, cy - GENE_H / 2)
         ctx.lineTo(x2 - aw, cy - GENE_H / 2)
         ctx.lineTo(x2, cy)
@@ -242,28 +216,40 @@ export function hitTestFeature(
   features: Feature[],
 ): Feature | null {
   const trackY = HEADER_H
+  const cy = trackY + GENE_Y_OFFSET
   if (py < trackY || py > trackY + GENE_TRACK_H) return null
-  const fwdY = trackY + FWD_Y_OFFSET
-  const revY = trackY + REV_Y_OFFSET
   const slop = GENE_H / 2 + 3
 
   for (const f of features) {
     if (f.end < viewStart || f.start > viewEnd) continue
     const x1 = toX(f.start, viewStart, viewEnd, W)
     const x2 = toX(f.end, viewStart, viewEnd, W)
-    const cy = f.strand === '+' ? fwdY : revY
     if (px >= x1 - 1 && px <= x2 + 1 && Math.abs(py - cy) <= slop) return f
   }
   return null
 }
 
-export function hitTestMinimap(
+// Returns genomic position under px, or null if not in minimap
+export function minimapPxToPos(px: number, py: number, W: number, contigLength: number): number | null {
+  if (py > MINIMAP_H) return null
+  const pad = 10
+  const ratio = Math.max(0, Math.min(1, (px - pad) / (W - pad * 2)))
+  return Math.round(ratio * contigLength)
+}
+
+// Returns true if (px,py) is inside the minimap viewport indicator
+export function isInsideMinimapViewport(
   px: number,
   py: number,
   W: number,
+  viewStart: number,
+  viewEnd: number,
   contigLength: number,
-): number | null {
-  if (py > MINIMAP_H) return null
+): boolean {
+  if (py > MINIMAP_H) return false
   const pad = 10
-  return Math.round(((px - pad) / (W - pad * 2)) * contigLength)
+  const scaleW = W - pad * 2
+  const vx1 = (viewStart / contigLength) * scaleW + pad
+  const vx2 = (viewEnd / contigLength) * scaleW + pad
+  return px >= vx1 && px <= vx2
 }
