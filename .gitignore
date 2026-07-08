@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# env
+.env
+.env.local
+.env*.local
+acuity_db_password
+
+# build
+.next/
+dist/
+build/
+
+# data
+*.egg-info/
+
+# editors
+.vscode/
+.idea/
+
+# os
+.DS_Store
